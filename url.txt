@@ -1,0 +1,218 @@
+# Proyek Analisis Data: E-Commerce Public Dataset
+
+## Deskripsi Proyek
+Proyek ini merupakan submission analisis data menggunakan **E-Commerce Public Dataset** dengan fokus pada pemahaman performa bisnis, kualitas operasional pengiriman, perilaku pelanggan, dan persebaran geografis pelanggan. Analisis dilakukan secara bertahap, dimulai dari memahami struktur data mentah, melakukan proses pembersihan dan penggabungan beberapa tabel, membangun metrik analitis, mengeksplorasi pola utama dalam data, lalu menerjemahkan temuan tersebut ke dalam dashboard interaktif berbasis **Streamlit**.
+
+Dataset yang digunakan terdiri dari beberapa file yang saling terhubung melalui entitas utama seperti `order_id`, `customer_id`, `product_id`, dan `seller_id`. Karena sifat dataset yang terpisah-pisah, proyek ini tidak hanya berfokus pada visualisasi akhir, tetapi juga pada proses transformasi data agar menghasilkan satu dataset analitis yang lebih siap pakai untuk menjawab kebutuhan bisnis.
+
+Secara umum, proyek ini bertujuan untuk menunjukkan bagaimana analisis data dapat digunakan untuk:
+- mengidentifikasi kategori produk yang paling kuat dari sisi pendapatan dan volume pesanan,
+- memahami hubungan antara performa pengiriman dan kepuasan pelanggan,
+- mengenali segmen pelanggan bernilai tinggi,
+- serta melihat konsentrasi wilayah yang berkontribusi besar terhadap penjualan.
+
+Selain analisis utama, proyek ini juga diperkaya dengan beberapa pendekatan lanjutan agar insight yang dihasilkan tidak berhenti pada level deskriptif. Pendekatan tersebut meliputi:
+- **RFM Analysis**
+- **Customer Clustering (Manual Grouping / Binning)**
+- **Geographic Analysis**
+
+Dengan kombinasi analisis tersebut, proyek ini diharapkan tidak hanya menjawab pertanyaan “apa yang terjadi”, tetapi juga memberi dasar yang lebih kuat untuk menentukan prioritas bisnis, pemasaran, dan operasional.
+
+---
+
+## Pertanyaan Bisnis
+1. **Kategori produk apa yang memberikan kontribusi terbesar terhadap pendapatan dan jumlah pesanan?**
+2. **Bagaimana performa pengiriman memengaruhi tingkat kepuasan pelanggan?**
+
+Dua pertanyaan ini dipilih karena mewakili dua area penting dalam bisnis e-commerce. Pertanyaan pertama berkaitan dengan **sisi komersial**: produk mana yang menjadi penggerak utama revenue dan order volume. Pertanyaan kedua berkaitan dengan **sisi operasional dan pengalaman pelanggan**: apakah ketepatan pengiriman benar-benar berpengaruh terhadap review yang diberikan pelanggan.
+
+Sebagai perluasan dari dua pertanyaan inti tersebut, analisis juga diarahkan untuk memahami:
+- siapa pelanggan yang paling bernilai berdasarkan perilaku transaksi,
+- kelompok pelanggan mana yang perlu dipertahankan atau diaktivasi kembali,
+- dan wilayah mana yang paling dominan dalam menyumbang pendapatan.
+
+---
+
+## Insight Utama
+Berdasarkan hasil analisis pada notebook, terdapat beberapa insight utama yang cukup konsisten dan relevan secara bisnis.
+
+Beberapa kategori produk terbukti menjadi motor utama performa penjualan. Dari sisi pendapatan, kategori seperti **health_beauty**, **watches_gifts**, dan **bed_bath_table** muncul sebagai kontributor terbesar. Temuan ini menunjukkan bahwa kontribusi revenue tidak tersebar merata di seluruh kategori, melainkan cukup terkonsentrasi pada sejumlah kategori unggulan. Dari sudut pandang bisnis, kategori-kategori ini layak diperlakukan sebagai prioritas dalam strategi promosi, pengelolaan stok, dan pengembangan pengalaman pelanggan.
+
+Analisis pengiriman menunjukkan hubungan yang jelas antara ketepatan pengiriman dan kepuasan pelanggan. Pesanan yang sampai **lebih cepat** cenderung memperoleh **review score** yang lebih tinggi, sementara keterlambatan pengiriman, terutama yang melebihi beberapa hari, berkorelasi dengan penurunan skor ulasan. Temuan ini memperlihatkan bahwa kualitas logistik bukan hanya isu operasional, tetapi juga bagian penting dari pengalaman pelanggan dan persepsi terhadap brand.
+
+Pada sisi pelanggan, analisis RFM memperlihatkan bahwa basis pelanggan tidak bersifat homogen. Terdapat pelanggan dengan nilai tinggi yang layak dipertahankan melalui program loyalitas, pelanggan yang cukup aktif namun perlu dijaga agar tidak menurun, pelanggan baru yang masih perlu dibina, serta pelanggan yang mulai menunjukkan tanda-tanda berisiko churn. Dengan segmentasi seperti ini, strategi pemasaran dan retensi dapat menjadi lebih terarah.
+
+Dari sisi geografis, kontribusi penjualan terlihat lebih terkonsentrasi pada state tertentu, terutama **SP**, **RJ**, dan **MG**. Ini menunjukkan bahwa peluang optimasi tidak hanya berasal dari sisi produk, tetapi juga dari fokus wilayah. Strategi distribusi, kampanye pemasaran regional, dan prioritas logistik dapat diarahkan lebih kuat pada area-area dengan kontribusi terbesar.
+
+Secara keseluruhan, proyek ini menunjukkan bahwa performa bisnis e-commerce tidak cukup dipahami hanya dari total penjualan. Kinerja kategori produk, kualitas pengiriman, perilaku pelanggan, dan distribusi geografis semuanya saling melengkapi dalam membentuk gambaran bisnis yang lebih utuh.
+
+---
+
+## Alur Analisis
+Proses analisis pada notebook dilakukan dalam beberapa tahap utama berikut.
+
+### 1. Data Gathering
+Pada tahap awal, seluruh file dataset dimuat ke dalam environment analisis. File yang digunakan mencakup data pelanggan, lokasi geografis, item pesanan, pembayaran, review, pesanan, terjemahan kategori produk, data produk, dan data penjual. Dari tahap ini terlihat bahwa dataset bersifat relasional dan perlu digabungkan untuk dapat menjawab pertanyaan bisnis secara menyeluruh.
+
+Salah satu temuan awal yang penting adalah ukuran file `geolocation_dataset.csv` yang sangat besar dibandingkan file lain. Hal ini memberi konsekuensi pada kebutuhan efisiensi saat pembersihan dan penggabungan data.
+
+### 2. Data Assessment
+Setelah semua tabel dimuat, dilakukan pemeriksaan terhadap:
+- tipe data,
+- missing values,
+- duplikasi baris,
+- dan jumlah nilai unik per kolom.
+
+Dari proses assessment ditemukan beberapa hal penting:
+- tabel `orders` memiliki missing values pada beberapa kolom tanggal pengiriman, yang masih masuk akal karena tidak semua pesanan berstatus delivered,
+- tabel `products` memiliki kekosongan pada beberapa atribut produk dan kategori,
+- tabel `order_reviews` memiliki banyak missing values pada kolom komentar ulasan, tetapi kolom ini tidak menjadi fokus utama analisis numerik,
+- dan tabel `geolocation` memiliki banyak duplikasi sehingga perlu diringkas agar lebih efisien digunakan.
+
+### 3. Data Cleaning dan Feature Engineering
+Tahap cleaning menjadi bagian penting karena analisis utama hanya difokuskan pada **pesanan dengan status delivered**. Keputusan ini dibuat agar perhitungan revenue, waktu pengiriman, dan evaluasi kepuasan pelanggan lebih konsisten dan relevan.
+
+Beberapa langkah yang dilakukan pada tahap ini meliputi:
+- mengubah kolom tanggal menjadi tipe `datetime`,
+- menerjemahkan kategori produk ke bahasa Inggris,
+- merangkum data geolokasi berdasarkan `zip_code_prefix`,
+- menggabungkan beberapa tabel menjadi satu dataset analitis,
+- lalu membangun fitur turunan yang dibutuhkan untuk analisis.
+
+Fitur-fitur baru yang dibentuk di antaranya:
+- `sales` sebagai penjumlahan `price` dan `freight_value`,
+- `purchase_month` untuk analisis tren bulanan,
+- `delivery_time_days` untuk menghitung lama pengiriman,
+- `delivery_delay_days` untuk mengukur selisih antara tanggal terima aktual dan estimasi,
+- `is_late` untuk menandai apakah pesanan terlambat,
+- `delay_category` untuk mengelompokkan keterlambatan ke dalam kategori yang lebih mudah diinterpretasikan.
+
+Hasil akhir tahap ini adalah terbentuknya `main_data.csv` yang digunakan kembali pada dashboard Streamlit.
+
+---
+
+## Exploratory Data Analysis (EDA)
+Tahap EDA dilakukan untuk memahami pola dasar sebelum masuk ke visualisasi penjelas. Analisis difokuskan pada ringkasan metrik utama, performa bulanan, kontribusi kategori, hubungan pengiriman dengan review, dan performa per state.
+
+### Ringkasan Metrik Utama
+Pada tahap ini dihitung beberapa metrik inti, seperti:
+- total delivered orders,
+- total unique customers,
+- total revenue,
+- average review score,
+- persentase keterlambatan pengiriman.
+
+Ringkasan ini memberikan gambaran awal tentang skala bisnis, kualitas pengalaman pelanggan, dan kondisi logistik secara umum.
+
+### Eksplorasi Kategori Produk
+Analisis kategori memperlihatkan bahwa pendapatan dan jumlah pesanan cenderung terkonsentrasi pada sebagian kecil kategori. Ini penting karena dalam banyak bisnis e-commerce, tidak semua kategori memiliki peran yang sama. Dengan mengetahui kategori mana yang dominan, perusahaan dapat lebih fokus dalam menentukan prioritas produk.
+
+### Eksplorasi Pengiriman dan Review
+Dengan mengelompokkan pesanan berdasarkan kategori keterlambatan pengiriman, terlihat pola bahwa kepuasan pelanggan cenderung menurun seiring meningkatnya keterlambatan. Artinya, review score bukan hanya dipengaruhi oleh kualitas produk, tetapi juga oleh pengalaman pemenuhan pesanan.
+
+### Eksplorasi Wilayah
+Analisis per state menunjukkan bahwa kontribusi penjualan tidak tersebar merata di seluruh wilayah. Beberapa state memiliki performa yang jauh lebih tinggi, baik dari sisi revenue maupun jumlah order. Hal ini menjadi landasan penting bagi analisis geografis lanjutan.
+
+---
+
+## Visualisasi dan Analisis Eksplanatori
+Bagian ini berfokus pada pembuatan visualisasi yang secara langsung menjawab pertanyaan bisnis utama.
+
+### 1. Kategori produk dengan kontribusi terbesar
+Visualisasi pertama menampilkan **Top 10 kategori produk berdasarkan total revenue**. Dari hasil ini terlihat bahwa kategori seperti `health_beauty`, `watches_gifts`, dan `bed_bath_table` berada di posisi teratas.
+
+Temuan ini penting karena:
+- kategori unggulan dapat dijadikan fokus promosi,
+- kategori tersebut layak mendapatkan perhatian lebih dalam pengelolaan stok,
+- dan strategi cross-selling atau bundling bisa dibangun di sekitar kategori dengan kontribusi tertinggi.
+
+Agar pembacaan bisnis lebih lengkap, notebook tidak hanya berhenti pada revenue, tetapi juga melihat **jumlah pesanan**, sehingga interpretasinya tidak bias pada kategori dengan harga produk yang sangat tinggi namun volume rendah.
+
+### 2. Pengaruh performa pengiriman terhadap kepuasan pelanggan
+Visualisasi kedua memperlihatkan **rata-rata review score berdasarkan kategori ketepatan pengiriman**. Pola yang terlihat cukup jelas: pesanan yang tiba lebih cepat memiliki rata-rata review paling baik, sedangkan pesanan yang terlambat memperoleh skor yang lebih rendah.
+
+Secara bisnis, hasil ini menunjukkan bahwa:
+- performa logistik berkontribusi langsung pada pengalaman pelanggan,
+- keterlambatan pengiriman dapat menurunkan persepsi kualitas layanan,
+- dan peningkatan efisiensi pengiriman berpotensi memberi dampak pada kepuasan, loyalitas, bahkan repeat order.
+
+### 3. Tren pesanan bulanan
+Visualisasi pendukung berupa tren jumlah pesanan bulanan menunjukkan pertumbuhan yang cukup kuat menuju akhir 2017 hingga pertengahan 2018. Analisis ini berguna untuk membaca dinamika musiman dan dapat membantu perencanaan promosi maupun kapasitas operasional.
+
+---
+
+## Analisis Lanjutan
+Selain dua pertanyaan bisnis utama, notebook juga dilengkapi dengan analisis lanjutan agar pembacaan bisnis menjadi lebih kaya.
+
+### RFM Analysis
+RFM digunakan untuk mengevaluasi pelanggan dari tiga sisi:
+- **Recency**: seberapa baru pelanggan melakukan transaksi,
+- **Frequency**: seberapa sering pelanggan melakukan transaksi,
+- **Monetary**: seberapa besar nilai transaksi yang dihasilkan pelanggan.
+
+Setelah setiap pelanggan diberi skor R, F, dan M, pelanggan kemudian dikelompokkan ke dalam segmen seperti:
+- **Best Customers**
+- **Loyal Customers**
+- **Recent Customers**
+- **At Risk**
+- **Others**
+
+Pendekatan ini membantu memetakan prioritas tindakan bisnis.  
+Segmen **Best Customers** dan **Loyal Customers** cocok untuk strategi retensi, personalisasi, dan loyalty program. Segmen **Recent Customers** dapat diarahkan ke strategi onboarding dan repeat purchase. Sementara segmen **At Risk** lebih relevan untuk kampanye reaktivasi.
+
+RFM menjadi penting karena total revenue saja tidak cukup untuk memahami kualitas basis pelanggan. Dua pelanggan dengan nilai transaksi serupa bisa memiliki perilaku yang sangat berbeda jika dilihat dari kapan terakhir membeli dan seberapa sering mereka bertransaksi.
+
+### Customer Clustering (Manual Grouping / Binning)
+Selain RFM, dashboard juga dilengkapi pendekatan **manual grouping / binning** untuk mengelompokkan pelanggan berdasarkan nilai transaksi. Pendekatan ini lebih sederhana dibanding clustering algoritmik, tetapi tetap berguna untuk membedakan pelanggan berdasarkan nilai ekonomi relatif, misalnya dari kelompok **Low** hingga **Very High**.
+
+Pendekatan ini membantu memberikan lapisan interpretasi tambahan, terutama saat ingin melihat distribusi pelanggan dari sisi monetary value secara lebih langsung dan mudah dijelaskan.
+
+### Geographic Analysis
+Analisis geografis dilakukan dengan memanfaatkan koordinat lokasi pelanggan yang sudah diringkas berdasarkan `zip_code_prefix`. Dari hasil agregasi per state, terlihat bahwa revenue terbesar terkonsentrasi pada wilayah tertentu, terutama **SP**, **RJ**, dan **MG**.
+
+Analisis geografis ini memberikan manfaat praktis:
+- membantu menentukan wilayah prioritas untuk kampanye pemasaran,
+- membantu mengidentifikasi area dengan basis pelanggan kuat,
+- dan memberi konteks untuk optimasi distribusi serta logistik.
+
+Meskipun analisis geografis pada notebook masih bersifat sederhana, hasilnya tetap relevan karena mampu menunjukkan bahwa lokasi pelanggan memiliki hubungan penting dengan performa bisnis.
+
+---
+
+## Dashboard Interaktif
+Sebagai pelengkap notebook, proyek ini juga menyertakan dashboard interaktif menggunakan **Streamlit**. Dashboard dibuat untuk menerjemahkan analisis notebook ke dalam bentuk yang lebih mudah dijelajahi oleh pengguna non-teknis.
+
+Dashboard menampilkan tiga area utama:
+- **Business Performance**, untuk memantau KPI utama, tren pendapatan, dan kategori produk teratas,
+- **Customer Intelligence**, untuk melihat hubungan pengiriman dengan review, segmentasi RFM, dan pengelompokan pelanggan,
+- **Geographic Distribution**, untuk melihat kontribusi wilayah dan persebaran pelanggan secara geografis.
+
+Selain itu, dashboard juga dilengkapi filter berdasarkan:
+- state pelanggan,
+- kategori produk,
+- dan bulan transaksi.
+
+Dengan filter tersebut, pengguna dapat melakukan simulasi sederhana terhadap subset data tertentu dan melihat bagaimana KPI maupun visualisasi berubah sesuai konteks yang dipilih.
+
+---
+
+## Struktur Direktori
+```text
+submission/
+├── dashboard/
+│   └── dashboard.py
+├── data/
+│   ├── customers_dataset.csv
+│   ├── geolocation_dataset.csv
+│   ├── main_data.csv
+│   ├── order_items_dataset.csv
+│   ├── order_payments_dataset.csv
+│   ├── order_reviews_dataset.csv
+│   ├── orders_dataset.csv
+│   ├── product_category_name_translation.csv
+│   ├── products_dataset.csv
+│   └── sellers_dataset.csv
+├── notebook.ipynb
+├── README.md
+├── requirements.txt
+└── url.txt
