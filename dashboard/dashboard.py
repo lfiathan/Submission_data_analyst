@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 import csv
 
 import numpy as np
@@ -9,48 +9,24 @@ import plotly.graph_objects as go
 import streamlit as st
 
 
-# =========================================================
-# PAGE CONFIG
-# =========================================================
 st.set_page_config(
     page_title="E-Commerce Analytics Dashboard",
     page_icon="🛒",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 
-# =========================================================
-# DESIGN SYSTEM
-# =========================================================
 COLOR_BG = "#0F172A"
-COLOR_BG_SOFT = "#111827"
 COLOR_CARD = "#1E293B"
-COLOR_CARD_2 = "#172033"
 COLOR_BORDER = "#334155"
-
 COLOR_TEXT = "#E2E8F0"
 COLOR_SUBTEXT = "#94A3B8"
-
-COLOR_PRIMARY = "#38BDF8"
-COLOR_SECONDARY = "#818CF8"
+COLOR_PRIMARY = "#4E79A7"
+COLOR_HIGHLIGHT = "#F28E2B"
 COLOR_SUCCESS = "#34D399"
 COLOR_WARNING = "#FBBF24"
-COLOR_ORANGE = "#FB923C"
 COLOR_DANGER = "#F87171"
-
-MAP_STYLE_LIGHT = "carto-positron"
-MAP_CENTER_BRAZIL = {"lat": -14.2350, "lon": -51.9253}
-MAP_ZOOM_DEFAULT = 3.2
-MAP_MAX_POINTS = 3000
-
-DELAY_COLOR_MAP = {
-    "Lebih cepat": COLOR_SUCCESS,
-    "Tepat waktu": COLOR_PRIMARY,
-    "Terlambat 1-3 hari": COLOR_WARNING,
-    "Terlambat 4-7 hari": COLOR_ORANGE,
-    "Terlambat >7 hari": COLOR_DANGER,
-}
 
 DELAY_ORDER = [
     "Lebih cepat",
@@ -60,20 +36,13 @@ DELAY_ORDER = [
     "Terlambat >7 hari",
 ]
 
-REQUIRED_COLUMNS = [
-    "order_id",
-    "customer_unique_id",
-    "customer_state",
-    "product_category_name_english",
-    "review_score",
-    "sales",
-    "purchase_month",
-    "is_late",
-    "delay_category",
-    "order_purchase_timestamp",
-    "geolocation_lat",
-    "geolocation_lng",
-]
+DELAY_COLOR_MAP = {
+    "Lebih cepat": COLOR_SUCCESS,
+    "Tepat waktu": COLOR_PRIMARY,
+    "Terlambat 1-3 hari": COLOR_WARNING,
+    "Terlambat 4-7 hari": "#FB923C",
+    "Terlambat >7 hari": COLOR_DANGER,
+}
 
 BRAZIL_STATE_CENTROIDS = {
     "AC": (-8.77, -70.55),
@@ -105,18 +74,19 @@ BRAZIL_STATE_CENTROIDS = {
     "TO": (-10.25, -48.25),
 }
 
+PLOT_CONFIG = {
+    "displayModeBar": True,
+    "responsive": True,
+    "scrollZoom": True,
+}
 
-# =========================================================
-# UI STYLING
-# =========================================================
-def apply_custom_style() -> None:
+
+def apply_style() -> None:
     st.markdown(
         f"""
         <style>
             .stApp {{
-                background:
-                    radial-gradient(circle at top left, #162033 0%, {COLOR_BG} 45%),
-                    linear-gradient(180deg, #0B1220 0%, {COLOR_BG_SOFT} 100%);
+                background: linear-gradient(180deg, #0B1220 0%, {COLOR_BG} 100%);
                 color: {COLOR_TEXT};
             }}
 
@@ -126,7 +96,7 @@ def apply_custom_style() -> None:
             }}
 
             section[data-testid="stSidebar"] {{
-                background: linear-gradient(180deg, #111827 0%, #172033 100%);
+                background: #111827;
                 border-right: 1px solid {COLOR_BORDER};
             }}
 
@@ -135,53 +105,39 @@ def apply_custom_style() -> None:
             }}
 
             .hero-box {{
-                background: linear-gradient(
-                    135deg,
-                    rgba(56, 189, 248, 0.16) 0%,
-                    rgba(129, 140, 248, 0.10) 100%
-                );
-                border: 1px solid rgba(56, 189, 248, 0.28);
-                border-radius: 18px;
-                padding: 1.15rem 1.2rem;
-                margin-bottom: 1.2rem;
-                color: {COLOR_TEXT};
-                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-            }}
-
-            .sidebar-box {{
-                background: rgba(30, 41, 59, 0.88);
+                background: rgba(30, 41, 59, 0.96);
                 border: 1px solid {COLOR_BORDER};
                 border-radius: 14px;
-                padding: 0.95rem 1rem;
+                padding: 1rem 1.1rem;
                 margin-bottom: 1rem;
                 color: {COLOR_TEXT};
-                font-size: 0.93rem;
-                line-height: 1.55;
+            }}
+
+            .guide-box {{
+                background: rgba(78, 121, 167, 0.14);
+                border: 1px solid rgba(78, 121, 167, 0.7);
+                border-radius: 14px;
+                padding: 1rem 1.1rem;
+                margin-bottom: 1rem;
+                color: {COLOR_TEXT};
             }}
 
             .insight-box {{
-                background: linear-gradient(
-                    180deg,
-                    rgba(30, 41, 59, 0.95) 0%,
-                    rgba(23, 32, 51, 0.95) 100%
-                );
+                background: rgba(30, 41, 59, 0.96);
                 border: 1px solid {COLOR_BORDER};
-                border-radius: 16px;
-                padding: 1rem 1.05rem;
-                box-shadow: 0 8px 22px rgba(0, 0, 0, 0.20);
+                border-left: 4px solid {COLOR_HIGHLIGHT};
+                border-radius: 14px;
+                padding: 1rem 1.1rem;
+                margin-bottom: 1rem;
                 color: {COLOR_TEXT};
             }}
 
             div[data-testid="stMetric"] {{
-                background: linear-gradient(
-                    180deg,
-                    rgba(30,41,59,0.96) 0%,
-                    rgba(23,32,51,0.96) 100%
-                );
+                background: rgba(30, 41, 59, 0.96);
                 border: 1px solid {COLOR_BORDER};
-                border-radius: 16px;
+                border-radius: 14px;
                 padding: 1rem;
-                box-shadow: 0 8px 22px rgba(0,0,0,0.22);
+                box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
                 min-height: 110px;
             }}
 
@@ -196,17 +152,16 @@ def apply_custom_style() -> None:
 
             div[data-testid="stMetricValue"] {{
                 color: {COLOR_TEXT} !important;
-                font-size: 1.95rem !important;
+                font-size: 1.85rem !important;
                 line-height: 1.1 !important;
+            }}
+
+            div[data-testid="stMetricDelta"] {{
+                color: {COLOR_HIGHLIGHT} !important;
             }}
 
             h1, h2, h3, h4 {{
                 color: {COLOR_TEXT} !important;
-            }}
-
-            .small-note {{
-                color: {COLOR_SUBTEXT};
-                font-size: 0.92rem;
             }}
         </style>
         """,
@@ -214,35 +169,37 @@ def apply_custom_style() -> None:
     )
 
 
-# =========================================================
-# FORMAT HELPERS
-# =========================================================
 def format_currency(value: float) -> str:
-    safe_value = 0.0 if pd.isna(value) else float(value)
-    return f"R$ {safe_value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    if pd.isna(value):
+        value = 0.0
+    return f"R$ {float(value):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 def format_number(value: float) -> str:
-    safe_value = 0 if pd.isna(value) else int(value)
-    return f"{safe_value:,}".replace(",", ".")
+    if pd.isna(value):
+        value = 0
+    return f"{int(value):,}".replace(",", ".")
 
 
-def safe_first_row_value(df: pd.DataFrame, column: str, default):
+def safe_value(df: pd.DataFrame, column: str, default):
     if df.empty or column not in df.columns:
         return default
     return df.iloc[0][column]
 
 
-# =========================================================
-# FILE HELPERS
-# =========================================================
+def dataframe_to_csv_bytes(df: pd.DataFrame) -> bytes:
+    return df.to_csv(index=False).encode("utf-8-sig")
+
+
 def resolve_data_path() -> Path:
     dashboard_dir = Path(__file__).resolve().parent
     project_root = dashboard_dir.parent
 
     candidate_paths = [
-        project_root / "data" / "main_data.csv",
         dashboard_dir / "main_data.csv",
+        project_root / "dashboard" / "main_data.csv",
+        project_root / "data" / "main_data.csv",
+        project_root / "main_data.csv",
     ]
 
     for path in candidate_paths:
@@ -250,9 +207,8 @@ def resolve_data_path() -> Path:
             return path
 
     raise FileNotFoundError(
-        "File main_data.csv tidak ditemukan.\n"
-        f"- {project_root / 'data' / 'main_data.csv'}\n"
-        f"- {dashboard_dir / 'main_data.csv'}"
+        "File main_data.csv tidak ditemukan. "
+        "Pastikan file tersimpan di folder dashboard atau project root."
     )
 
 
@@ -264,14 +220,7 @@ def detect_csv_separator(path: Path) -> str:
         dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
         return dialect.delimiter
     except csv.Error:
-        first_line = sample.splitlines()[0] if sample else ""
-        separator_scores = {
-            ",": first_line.count(","),
-            ";": first_line.count(";"),
-            "\t": first_line.count("\t"),
-            "|": first_line.count("|"),
-        }
-        return max(separator_scores, key=separator_scores.get)
+        return ","
 
 
 def read_csv_safely(path: Path) -> Tuple[pd.DataFrame, str]:
@@ -280,8 +229,6 @@ def read_csv_safely(path: Path) -> Tuple[pd.DataFrame, str]:
 
     if len(df.columns) == 1:
         for separator in [",", ";", "\t", "|"]:
-            if separator == detected_separator:
-                continue
             retry_df = pd.read_csv(path, sep=separator, encoding="utf-8-sig")
             if len(retry_df.columns) > 1:
                 return retry_df, separator
@@ -289,37 +236,16 @@ def read_csv_safely(path: Path) -> Tuple[pd.DataFrame, str]:
     return df, detected_separator
 
 
-# =========================================================
-# PARSING HELPERS
-# =========================================================
-def parse_datetime_series(series: pd.Series) -> pd.Series:
-    if pd.api.types.is_datetime64_any_dtype(series):
-        return pd.to_datetime(series, errors="coerce")
-
-    series = series.astype("string").str.strip()
-    parsed = pd.Series(pd.NaT, index=series.index, dtype="datetime64[ns]")
-
-    known_formats = [
-        "%d/%m/%Y %H:%M:%S",
-        "%d/%m/%Y %H:%M",
-        "%d/%m/%Y",
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%d %H:%M",
-        "%Y-%m-%d",
+def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
+    normalized_df = df.copy()
+    normalized_df.columns = [
+        str(col).strip().lower().replace(" ", "_") for col in normalized_df.columns
     ]
+    return normalized_df
 
-    for fmt in known_formats:
-        current = pd.to_datetime(series, format=fmt, errors="coerce")
-        parsed = parsed.fillna(current)
 
-    remaining_mask = parsed.isna()
-    if remaining_mask.any():
-        parsed.loc[remaining_mask] = pd.to_datetime(
-            series.loc[remaining_mask],
-            errors="coerce",
-        )
-
-    return parsed
+def parse_datetime_series(series: pd.Series) -> pd.Series:
+    return pd.to_datetime(series, errors="coerce")
 
 
 def parse_locale_number(value):
@@ -351,14 +277,6 @@ def parse_locale_numeric_series(series: pd.Series) -> pd.Series:
     return series.apply(parse_locale_number)
 
 
-def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
-    normalized_df = df.copy()
-    normalized_df.columns = [
-        str(col).strip().lower().replace(" ", "_") for col in normalized_df.columns
-    ]
-    return normalized_df
-
-
 def normalize_boolean_series(series: pd.Series) -> pd.Series:
     return (
         series.astype(str)
@@ -378,14 +296,10 @@ def normalize_boolean_series(series: pd.Series) -> pd.Series:
     )
 
 
-# =========================================================
-# DATA PREPARATION
-# =========================================================
-def normalize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+def prepare_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     normalized_df = normalize_columns(df)
 
     datetime_columns = [
-        "shipping_limit_date",
         "order_purchase_timestamp",
         "order_delivered_customer_date",
         "order_estimated_delivery_date",
@@ -395,15 +309,9 @@ def normalize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
             normalized_df[column] = parse_datetime_series(normalized_df[column])
 
     numeric_columns = [
-        "order_item_id",
-        "price",
-        "freight_value",
         "review_score",
         "sales",
-        "delivery_time_days",
-        "delivery_delay_days",
-        "customer_zip_code_prefix",
-        "geolocation_zip_code_prefix",
+        "total_sales",
         "geolocation_lat",
         "geolocation_lng",
     ]
@@ -411,155 +319,209 @@ def normalize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         if column in normalized_df.columns:
             normalized_df[column] = parse_locale_numeric_series(normalized_df[column])
 
+    if "sales" not in normalized_df.columns and "total_sales" in normalized_df.columns:
+        normalized_df["sales"] = normalized_df["total_sales"]
+
+    if "purchase_month" not in normalized_df.columns and "order_purchase_timestamp" in normalized_df.columns:
+        normalized_df["purchase_month"] = (
+            normalized_df["order_purchase_timestamp"].dt.to_period("M").astype(str)
+        )
+
+    if "is_late" in normalized_df.columns:
+        normalized_df["is_late"] = normalize_boolean_series(normalized_df["is_late"])
+    else:
+        normalized_df["is_late"] = False
+
     fill_map = {
         "customer_state": "Unknown",
         "customer_city": "Unknown",
         "product_category_name_english": "unknown",
         "delay_category": "Unknown",
-        "order_status": "unknown",
     }
     for column, default_value in fill_map.items():
         if column in normalized_df.columns:
             normalized_df[column] = normalized_df[column].fillna(default_value)
-
-    if "purchase_month" in normalized_df.columns:
-        normalized_df["purchase_month"] = normalized_df["purchase_month"].astype(str).str.strip()
-    elif "order_purchase_timestamp" in normalized_df.columns:
-        normalized_df["purchase_month"] = (
-            normalized_df["order_purchase_timestamp"].dt.to_period("M").astype(str)
-        )
-    else:
-        normalized_df["purchase_month"] = "Unknown"
-
-    if "sales" not in normalized_df.columns:
-        if "price" in normalized_df.columns and "freight_value" in normalized_df.columns:
-            normalized_df["sales"] = (
-                normalized_df["price"].fillna(0) + normalized_df["freight_value"].fillna(0)
-            )
-        elif "price" in normalized_df.columns:
-            normalized_df["sales"] = normalized_df["price"].fillna(0)
         else:
-            normalized_df["sales"] = 0.0
-
-    if "is_late" in normalized_df.columns:
-        normalized_df["is_late"] = normalize_boolean_series(normalized_df["is_late"])
-    elif "delivery_delay_days" in normalized_df.columns:
-        normalized_df["is_late"] = normalized_df["delivery_delay_days"] > 0
-    else:
-        normalized_df["is_late"] = False
-
-    if "delay_category" in normalized_df.columns:
-        normalized_df["delay_category"] = normalized_df["delay_category"].fillna("Unknown")
+            normalized_df[column] = default_value
 
     return normalized_df
-
-
-def validate_required_columns(df: pd.DataFrame) -> List[str]:
-    return [column for column in REQUIRED_COLUMNS if column not in df.columns]
 
 
 @st.cache_data
 def load_data(path: Path) -> Tuple[pd.DataFrame, str]:
     raw_df, separator = read_csv_safely(path)
-    normalized_df = normalize_dataframe(raw_df)
+    normalized_df = prepare_dataframe(raw_df)
     return normalized_df, separator
 
 
-# =========================================================
-# FILTER HELPERS
-# =========================================================
-def get_filter_options(df: pd.DataFrame) -> Dict[str, List[str]]:
-    return {
-        "states": sorted(df["customer_state"].dropna().astype(str).unique().tolist()),
-        "categories": sorted(
-            df["product_category_name_english"].dropna().astype(str).unique().tolist()
-        ),
-        "months": sorted(df["purchase_month"].dropna().astype(str).unique().tolist()),
+def validate_data(df: pd.DataFrame) -> None:
+    required_columns = [
+        "order_id",
+        "customer_unique_id",
+        "customer_state",
+        "product_category_name_english",
+        "review_score",
+        "sales",
+        "purchase_month",
+        "is_late",
+        "delay_category",
+        "order_purchase_timestamp",
+    ]
+
+    missing_columns = [column for column in required_columns if column not in df.columns]
+
+    if missing_columns:
+        st.error("Struktur file main_data.csv tidak sesuai dengan kebutuhan dashboard.")
+        st.write("Kolom yang hilang:", missing_columns)
+        st.write("Kolom yang terbaca:", df.columns.tolist())
+        st.stop()
+
+
+def build_order_df(item_df: pd.DataFrame) -> pd.DataFrame:
+    aggregation_map = {
+        "customer_unique_id": "first",
+        "customer_state": "first",
+        "customer_city": "first",
+        "review_score": "first",
+        "is_late": "first",
+        "delay_category": "first",
+        "order_purchase_timestamp": "first",
+        "sales": "sum",
     }
 
+    optional_columns = [
+        "geolocation_lat",
+        "geolocation_lng",
+        "order_delivered_customer_date",
+        "order_estimated_delivery_date",
+    ]
+    for column in optional_columns:
+        if column in item_df.columns:
+            aggregation_map[column] = "first"
 
-def render_sidebar_header(data_path: Path, df: pd.DataFrame) -> None:
+    order_df = item_df.groupby("order_id", as_index=False).agg(aggregation_map)
+    order_df["purchase_month"] = order_df["order_purchase_timestamp"].dt.to_period("M").astype(str)
+    return order_df
+
+
+def get_filter_options(
+    df: pd.DataFrame,
+) -> Tuple[List[str], List[str], pd.Timestamp, pd.Timestamp]:
+    states = sorted(df["customer_state"].dropna().astype(str).unique().tolist())
+    categories = sorted(df["product_category_name_english"].dropna().astype(str).unique().tolist())
+    min_date = df["order_purchase_timestamp"].min()
+    max_date = df["order_purchase_timestamp"].max()
+    return states, categories, min_date, max_date
+
+
+def get_preset_range(
+    preset: str,
+    min_date: pd.Timestamp,
+    max_date: pd.Timestamp,
+) -> Tuple[pd.Timestamp, pd.Timestamp]:
+    if preset == "Semua data":
+        return min_date, max_date
+
+    if preset == "90 hari terakhir":
+        return max(min_date, max_date - pd.Timedelta(days=89)), max_date
+
+    if preset == "180 hari terakhir":
+        return max(min_date, max_date - pd.Timedelta(days=179)), max_date
+
+    return min_date, max_date
+
+
+def render_sidebar(df: pd.DataFrame, data_path: Path) -> Dict:
+    states, categories, min_date, max_date = get_filter_options(df)
+
     st.sidebar.markdown("## Filter Dashboard")
-    st.sidebar.markdown(
-        """
-        <div class="sidebar-box">
-            <b>Cara menggunakan dashboard</b><br>
-            1. Gunakan filter state, kategori, dan bulan.<br>
-            2. Aktifkan <i>Pilih semua</i> untuk melihat seluruh data.<br>
-            3. Ubah filter untuk mensimulasikan perubahan KPI, grafik, dan insight.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.sidebar.caption(f"Sumber data: {data_path}")
-    st.sidebar.caption(f"Total baris data: {format_number(len(df))}")
+    st.sidebar.caption(f"Sumber data: {data_path.name}")
 
-
-def render_multiselect_section(
-    section_title: str,
-    label: str,
-    options: List[str],
-    key_prefix: str,
-    default_select_all: bool = True,
-) -> List[str]:
-    with st.sidebar.expander(section_title, expanded=False):
-        select_all = st.checkbox(
-            f"Pilih semua {label.lower()}",
-            value=default_select_all,
-            key=f"{key_prefix}_all",
+    with st.sidebar.expander("Panduan penggunaan", expanded=True):
+        st.markdown(
+            """
+            1. Pilih **preset periode** atau gunakan **tanggal kustom**.  
+            2. Gunakan filter **state** dan **kategori** untuk eksplorasi lebih spesifik.  
+            3. Ubah **Top N** untuk mengatur jumlah kategori/state yang tampil.  
+            4. Gunakan tab untuk berpindah antara performa bisnis, pelanggan, dan geografis.  
+            5. Unduh hasil filter pada bagian **Download data**.
+            """
         )
 
-        default_value = options if select_all else options[: min(5, len(options))]
+    preset = st.sidebar.radio(
+        "Preset periode",
+        ["Semua data", "90 hari terakhir", "180 hari terakhir", "Kustom"],
+        index=0,
+    )
 
-        selected_values = st.multiselect(
-            label,
-            options=options,
-            default=default_value,
-            key=f"{key_prefix}_multiselect",
-            help=f"Ubah filter untuk mensimulasikan subset tertentu dari {label.lower()}.",
+    if preset == "Kustom":
+        date_value = st.sidebar.date_input(
+            "Rentang tanggal transaksi",
+            value=(min_date.date(), max_date.date()),
+            min_value=min_date.date(),
+            max_value=max_date.date(),
         )
 
-    return selected_values
+        if isinstance(date_value, tuple) and len(date_value) == 2:
+            start_date, end_date = date_value
+        else:
+            start_date = date_value
+            end_date = date_value
 
+        start_date = pd.to_datetime(start_date)
+        end_date = pd.to_datetime(end_date)
+    else:
+        start_date, end_date = get_preset_range(preset, min_date, max_date)
 
-def render_sidebar_filters(df: pd.DataFrame, data_path: Path) -> Dict[str, List[str]]:
-    render_sidebar_header(data_path, df)
-    options = get_filter_options(df)
-
-    selected_states = render_multiselect_section(
-        section_title="Filter State Pelanggan",
-        label="State pelanggan",
-        options=options["states"],
-        key_prefix="states",
+    selected_states = st.sidebar.multiselect(
+        "Filter state pelanggan",
+        options=states,
+        default=states,
     )
-    selected_categories = render_multiselect_section(
-        section_title="Filter Kategori Produk",
-        label="Kategori produk",
-        options=options["categories"],
-        key_prefix="categories",
+
+    selected_categories = st.sidebar.multiselect(
+        "Filter kategori produk",
+        options=categories,
+        default=categories,
     )
-    selected_months = render_multiselect_section(
-        section_title="Filter Bulan Transaksi",
-        label="Bulan transaksi",
-        options=options["months"],
-        key_prefix="months",
+
+    top_n = st.sidebar.slider(
+        "Jumlah kategori/state yang ditampilkan",
+        min_value=5,
+        max_value=15,
+        value=10,
+        step=1,
+    )
+
+    map_mode = st.sidebar.selectbox(
+        "Mode peta",
+        ["Otomatis", "Koordinat pelanggan", "Centroid per state"],
+        index=0,
     )
 
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### Ringkasan Filter")
+    st.sidebar.caption(f"Periode data penuh: {min_date.date()} s.d. {max_date.date()}")
     st.sidebar.caption(f"State terpilih: {len(selected_states)}")
     st.sidebar.caption(f"Kategori terpilih: {len(selected_categories)}")
-    st.sidebar.caption(f"Bulan terpilih: {len(selected_months)}")
 
     return {
+        "start_date": pd.to_datetime(start_date),
+        "end_date": pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1),
         "states": selected_states,
         "categories": selected_categories,
-        "months": selected_months,
+        "top_n": top_n,
+        "map_mode": map_mode,
+        "preset": preset,
     }
 
 
-def apply_filters(df: pd.DataFrame, filters: Dict[str, List[str]]) -> pd.DataFrame:
+def apply_filters(df: pd.DataFrame, filters: Dict) -> pd.DataFrame:
     filtered_df = df.copy()
+
+    filtered_df = filtered_df[
+        (filtered_df["order_purchase_timestamp"] >= filters["start_date"])
+        & (filtered_df["order_purchase_timestamp"] <= filters["end_date"])
+    ]
 
     if filters["states"]:
         filtered_df = filtered_df[filtered_df["customer_state"].isin(filters["states"])]
@@ -569,97 +531,58 @@ def apply_filters(df: pd.DataFrame, filters: Dict[str, List[str]]) -> pd.DataFra
             filtered_df["product_category_name_english"].isin(filters["categories"])
         ]
 
-    if filters["months"]:
-        filtered_df = filtered_df[filtered_df["purchase_month"].isin(filters["months"])]
-
     return filtered_df
 
 
-# =========================================================
-# ORDER-LEVEL DATASET
-# =========================================================
-def build_order_level_dataframe(item_df: pd.DataFrame) -> pd.DataFrame:
-    aggregation_map = {}
-
-    first_value_columns = [
-        "customer_id",
-        "customer_unique_id",
-        "customer_state",
-        "customer_city",
-        "order_status",
-        "review_score",
-        "is_late",
-        "delay_category",
-        "order_purchase_timestamp",
-        "order_delivered_customer_date",
-        "order_estimated_delivery_date",
-        "geolocation_lat",
-        "geolocation_lng",
-    ]
-
-    for column in first_value_columns:
-        if column in item_df.columns:
-            aggregation_map[column] = "first"
-
-    if "sales" in item_df.columns:
-        aggregation_map["sales"] = "sum"
-
-    order_df = item_df.groupby("order_id", as_index=False).agg(aggregation_map).copy()
-    return order_df
-
-
-# =========================================================
-# BUSINESS CALCULATIONS
-# =========================================================
 def calculate_kpis(item_df: pd.DataFrame, order_df: pd.DataFrame) -> Dict[str, float]:
     total_revenue = item_df["sales"].sum()
     total_orders = order_df["order_id"].nunique()
     total_customers = order_df["customer_unique_id"].nunique()
     avg_order_value = total_revenue / total_orders if total_orders else 0.0
-    avg_review_score = order_df["review_score"].mean() if "review_score" in order_df.columns else 0.0
-    late_delivery_rate = order_df["is_late"].mean() * 100 if "is_late" in order_df.columns else 0.0
+    avg_review = order_df["review_score"].mean() if "review_score" in order_df.columns else 0.0
+    late_rate = order_df["is_late"].mean() * 100 if "is_late" in order_df.columns else 0.0
 
     return {
         "total_revenue": total_revenue,
         "total_orders": total_orders,
         "total_customers": total_customers,
         "avg_order_value": avg_order_value,
-        "avg_review_score": avg_review_score,
-        "late_delivery_rate": late_delivery_rate,
+        "avg_review": avg_review,
+        "late_rate": late_rate,
     }
 
 
-def get_monthly_sales(df: pd.DataFrame) -> pd.DataFrame:
+def monthly_summary(order_df: pd.DataFrame) -> pd.DataFrame:
     return (
-        df.groupby("purchase_month", as_index=False)["sales"]
-        .sum()
+        order_df.groupby("purchase_month", as_index=False)
+        .agg(
+            total_orders=("order_id", "nunique"),
+            total_revenue=("sales", "sum"),
+        )
         .sort_values("purchase_month")
     )
 
 
-def get_top_categories_by_revenue(df: pd.DataFrame, top_n: int = 10) -> pd.DataFrame:
+def top_categories(item_df: pd.DataFrame, top_n: int = 10) -> pd.DataFrame:
     return (
-        df.groupby("product_category_name_english", as_index=False)["sales"]
-        .sum()
-        .sort_values("sales", ascending=False)
+        item_df.groupby("product_category_name_english", as_index=False)
+        .agg(
+            total_revenue=("sales", "sum"),
+            total_orders=("order_id", "nunique"),
+            avg_review=("review_score", "mean"),
+        )
+        .sort_values("total_revenue", ascending=False)
         .head(top_n)
     )
 
 
-def get_top_categories_by_orders(df: pd.DataFrame, top_n: int = 10) -> pd.DataFrame:
-    return (
-        df.groupby("product_category_name_english", as_index=False)["order_id"]
-        .nunique()
-        .rename(columns={"order_id": "total_orders"})
-        .sort_values("total_orders", ascending=False)
-        .head(top_n)
-    )
-
-
-def get_review_by_delay(order_df: pd.DataFrame) -> pd.DataFrame:
+def review_by_delay(order_df: pd.DataFrame) -> pd.DataFrame:
     review_df = (
-        order_df.groupby("delay_category", as_index=False)["review_score"]
-        .mean()
+        order_df.groupby("delay_category", as_index=False)
+        .agg(
+            avg_review=("review_score", "mean"),
+            total_orders=("order_id", "nunique"),
+        )
     )
     review_df = review_df[review_df["delay_category"].isin(DELAY_ORDER)].copy()
     review_df["delay_category"] = pd.Categorical(
@@ -670,13 +593,26 @@ def get_review_by_delay(order_df: pd.DataFrame) -> pd.DataFrame:
     return review_df.sort_values("delay_category")
 
 
-def get_top_states_by_revenue(df: pd.DataFrame, top_n: int = 10) -> pd.DataFrame:
-    return (
-        df.groupby("customer_state", as_index=False)["sales"]
-        .sum()
-        .sort_values("sales", ascending=False)
+def state_summary(order_df: pd.DataFrame, top_n: int = 10) -> pd.DataFrame:
+    if order_df.empty:
+        return pd.DataFrame(
+            columns=["customer_state", "total_revenue", "total_orders", "avg_review", "late_rate"]
+        )
+
+    summary_df = (
+        order_df.groupby("customer_state", as_index=False)
+        .agg(
+            total_revenue=("sales", "sum"),
+            total_orders=("order_id", "nunique"),
+            avg_review=("review_score", "mean"),
+            late_rate=("is_late", "mean"),
+        )
+        .sort_values("total_revenue", ascending=False)
         .head(top_n)
     )
+
+    summary_df["late_rate"] = summary_df["late_rate"] * 100
+    return summary_df
 
 
 def score_by_quartile(series: pd.Series, higher_is_better: bool) -> pd.Series:
@@ -696,9 +632,9 @@ def score_by_quartile(series: pd.Series, higher_is_better: bool) -> pd.Series:
     return scores
 
 
-def compute_rfm_segment_summary(order_df: pd.DataFrame) -> pd.DataFrame:
+def rfm_summary(order_df: pd.DataFrame) -> pd.DataFrame:
     if order_df.empty:
-        return pd.DataFrame(columns=["segment", "total_customers"])
+        return pd.DataFrame(columns=["segment", "total_customers", "avg_monetary"])
 
     latest_date = order_df["order_purchase_timestamp"].max()
 
@@ -722,9 +658,9 @@ def compute_rfm_segment_summary(order_df: pd.DataFrame) -> pd.DataFrame:
             return "Best Customers"
         if row["r_score"] >= 3 and row["f_score"] >= 3 and row["m_score"] >= 3:
             return "Loyal Customers"
-        if row["r_score"] >= 3 and (row["f_score"] >= 2 or row["m_score"] >= 2):
+        if row["r_score"] >= 3 and row["f_score"] <= 2:
             return "Recent Customers"
-        if row["r_score"] <= 2 and row["f_score"] <= 2 and row["m_score"] <= 2:
+        if row["r_score"] <= 2 and row["f_score"] >= 3:
             return "At Risk"
         return "Others"
 
@@ -732,17 +668,13 @@ def compute_rfm_segment_summary(order_df: pd.DataFrame) -> pd.DataFrame:
 
     summary_df = (
         rfm_df.groupby("segment", as_index=False)
-        .size()
-        .rename(columns={"size": "total_customers"})
+        .agg(
+            total_customers=("customer_unique_id", "count"),
+            avg_monetary=("monetary", "mean"),
+        )
     )
 
-    segment_order = [
-        "Best Customers",
-        "Loyal Customers",
-        "Recent Customers",
-        "At Risk",
-        "Others",
-    ]
+    segment_order = ["Best Customers", "Loyal Customers", "Recent Customers", "At Risk", "Others"]
     summary_df["segment"] = pd.Categorical(
         summary_df["segment"],
         categories=segment_order,
@@ -752,125 +684,133 @@ def compute_rfm_segment_summary(order_df: pd.DataFrame) -> pd.DataFrame:
     return summary_df.sort_values("segment")
 
 
-def compute_monetary_cluster_summary(order_df: pd.DataFrame) -> pd.DataFrame:
+def spending_group_summary(order_df: pd.DataFrame) -> pd.DataFrame:
     if order_df.empty:
-        return pd.DataFrame(columns=["monetary_cluster", "total_customers"])
+        return pd.DataFrame(columns=["spending_group", "total_customers", "total_revenue"])
 
-    monetary_df = (
-        order_df.groupby("customer_unique_id", as_index=False)["sales"]
-        .sum()
-        .rename(columns={"sales": "monetary"})
+    spending_df = (
+        order_df.groupby("customer_unique_id", as_index=False)
+        .agg(total_spending=("sales", "sum"))
     )
 
-    q1 = monetary_df["monetary"].quantile(0.25)
-    q2 = monetary_df["monetary"].quantile(0.50)
-    q3 = monetary_df["monetary"].quantile(0.75)
-
-    def assign_cluster(value: float) -> str:
-        if value <= q1:
-            return "Low"
-        if value <= q2:
-            return "Medium"
-        if value <= q3:
-            return "High"
-        return "Very High"
-
-    monetary_df["monetary_cluster"] = monetary_df["monetary"].apply(assign_cluster)
-
-    summary_df = (
-        monetary_df.groupby("monetary_cluster", as_index=False)
-        .size()
-        .rename(columns={"size": "total_customers"})
+    spending_df["spending_group"] = pd.cut(
+        spending_df["total_spending"],
+        bins=[-np.inf, 100, 500, np.inf],
+        labels=["Low Spender", "Medium Spender", "High Spender"],
     )
 
-    cluster_order = ["Low", "Medium", "High", "Very High"]
-    summary_df["monetary_cluster"] = pd.Categorical(
-        summary_df["monetary_cluster"],
-        categories=cluster_order,
-        ordered=True,
+    return (
+        spending_df.groupby("spending_group", as_index=False, observed=True)
+        .agg(
+            total_customers=("customer_unique_id", "count"),
+            total_revenue=("total_spending", "sum"),
+        )
     )
 
-    return summary_df.sort_values("monetary_cluster")
 
-
-# =========================================================
-# MAP DATA HELPERS
-# =========================================================
-def get_granular_map_data(df: pd.DataFrame, max_points: int = MAP_MAX_POINTS) -> pd.DataFrame:
-    required_columns = ["order_id", "geolocation_lat", "geolocation_lng", "customer_state", "sales"]
-    available_columns = [column for column in required_columns if column in df.columns]
-
-    if "geolocation_lat" not in available_columns or "geolocation_lng" not in available_columns:
-        return pd.DataFrame()
-
-    map_df = df[available_columns].copy()
-
-    map_df["geolocation_lat"] = parse_locale_numeric_series(map_df["geolocation_lat"])
-    map_df["geolocation_lng"] = parse_locale_numeric_series(map_df["geolocation_lng"])
-    map_df = map_df.dropna(subset=["geolocation_lat", "geolocation_lng"])
-
-    if "order_id" in map_df.columns:
-        map_df = map_df.drop_duplicates(subset=["order_id"])
-
-    brazil_bounds_df = map_df[
-        map_df["geolocation_lat"].between(-35, 6)
-        & map_df["geolocation_lng"].between(-75, -30)
-    ]
-    if not brazil_bounds_df.empty:
-        map_df = brazil_bounds_df
-
-    if len(map_df) > max_points:
-        map_df = map_df.sample(max_points, random_state=42)
-
-    return map_df
-
-
-def get_state_centroid_map_data(df: pd.DataFrame) -> pd.DataFrame:
-    if "customer_state" not in df.columns or "sales" not in df.columns:
-        return pd.DataFrame()
-
-    state_df = (
-        df.groupby("customer_state", as_index=False)
+def build_state_fallback_map(order_df: pd.DataFrame) -> pd.DataFrame:
+    fallback_df = (
+        order_df.groupby("customer_state", as_index=False)
         .agg(
             total_revenue=("sales", "sum"),
             total_orders=("order_id", "nunique"),
         )
-        .copy()
     )
 
-    state_df["lat"] = state_df["customer_state"].map(
+    fallback_df["lat"] = fallback_df["customer_state"].map(
         lambda state: BRAZIL_STATE_CENTROIDS.get(state, (np.nan, np.nan))[0]
     )
-    state_df["lon"] = state_df["customer_state"].map(
+    fallback_df["lon"] = fallback_df["customer_state"].map(
         lambda state: BRAZIL_STATE_CENTROIDS.get(state, (np.nan, np.nan))[1]
     )
 
-    return state_df.dropna(subset=["lat", "lon"])
+    return fallback_df.dropna(subset=["lat", "lon"])
 
 
-# =========================================================
-# CHART STYLING
-# =========================================================
-def apply_figure_style(fig: go.Figure, height: int | None = None) -> go.Figure:
-    fig.update_layout(
-        template="plotly_dark",
-        plot_bgcolor=COLOR_CARD,
-        paper_bgcolor=COLOR_CARD,
-        font=dict(color=COLOR_TEXT, size=12),
-        title=dict(font=dict(size=18, color=COLOR_TEXT)),
-        margin=dict(l=20, r=20, t=60, b=20),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
-            font=dict(color=COLOR_TEXT),
-        ),
+def build_granular_map(order_df: pd.DataFrame) -> pd.DataFrame:
+    if not {"geolocation_lat", "geolocation_lng"}.issubset(order_df.columns):
+        return pd.DataFrame()
+
+    points_df = order_df.copy()
+    points_df["geolocation_lat"] = parse_locale_numeric_series(points_df["geolocation_lat"])
+    points_df["geolocation_lng"] = parse_locale_numeric_series(points_df["geolocation_lng"])
+
+    points_df = points_df.dropna(subset=["geolocation_lat", "geolocation_lng"]).copy()
+
+    if points_df.empty:
+        return points_df
+
+    points_df = points_df[
+        points_df["geolocation_lat"].between(-35, 6)
+        & points_df["geolocation_lng"].between(-75, -30)
+    ]
+
+    if len(points_df) > 3000:
+        points_df = points_df.sample(3000, random_state=42)
+
+    return points_df
+
+
+def get_map_data(order_df: pd.DataFrame, map_mode: str) -> Tuple[pd.DataFrame, str]:
+    granular_df = build_granular_map(order_df)
+    fallback_df = build_state_fallback_map(order_df)
+
+    if map_mode == "Koordinat pelanggan":
+        if not granular_df.empty:
+            return granular_df, "granular"
+        return fallback_df, "fallback"
+
+    if map_mode == "Centroid per state":
+        return fallback_df, "fallback"
+
+    if not granular_df.empty:
+        return granular_df, "granular"
+
+    return fallback_df, "fallback"
+
+
+def build_export_summary(kpis: Dict[str, float], filters: Dict, filtered_df: pd.DataFrame) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "metric": [
+                "preset_periode",
+                "tanggal_mulai",
+                "tanggal_selesai",
+                "jumlah_state_terpilih",
+                "jumlah_kategori_terpilih",
+                "jumlah_baris_terfilter",
+                "total_revenue",
+                "total_orders",
+                "total_customers",
+                "avg_order_value",
+                "avg_review",
+                "late_rate",
+            ],
+            "value": [
+                filters["preset"],
+                filters["start_date"].date(),
+                filters["end_date"].date(),
+                len(filters["states"]),
+                len(filters["categories"]),
+                len(filtered_df),
+                round(kpis["total_revenue"], 2),
+                kpis["total_orders"],
+                kpis["total_customers"],
+                round(kpis["avg_order_value"], 2),
+                round(kpis["avg_review"], 2),
+                round(kpis["late_rate"], 2),
+            ],
+        }
     )
 
-    if height is not None:
-        fig.update_layout(height=height)
+
+def base_layout(fig: go.Figure, height: Optional[int] = None) -> go.Figure:
+    fig.update_layout(
+        paper_bgcolor=COLOR_CARD,
+        plot_bgcolor=COLOR_CARD,
+        font=dict(color=COLOR_TEXT),
+        margin=dict(l=20, r=20, t=60, b=20),
+    )
 
     fig.update_xaxes(
         showgrid=False,
@@ -878,133 +818,76 @@ def apply_figure_style(fig: go.Figure, height: int | None = None) -> go.Figure:
         tickfont=dict(color=COLOR_SUBTEXT),
     )
     fig.update_yaxes(
-        showgrid=True,
         gridcolor="rgba(148,163,184,0.18)",
         linecolor=COLOR_BORDER,
         tickfont=dict(color=COLOR_SUBTEXT),
     )
+
+    if height is not None:
+        fig.update_layout(height=height)
+
     return fig
 
 
-def get_plotly_config() -> Dict:
-    return {
-        "displayModeBar": True,
-        "scrollZoom": True,
-        "responsive": True,
-    }
+def bar_colors(length: int, highlight_index: int) -> List[str]:
+    colors = [COLOR_PRIMARY] * length
+    if 0 <= highlight_index < length:
+        colors[highlight_index] = COLOR_HIGHLIGHT
+    return colors
 
 
-def build_customer_map_figure(map_df: pd.DataFrame) -> go.Figure:
-    fig = px.scatter_map(
-        map_df,
-        lat="geolocation_lat",
-        lon="geolocation_lng",
-        color="sales",
-        hover_name="customer_state",
-        hover_data={
-            "sales": ":.2f",
-            "geolocation_lat": False,
-            "geolocation_lng": False,
-        },
-        color_continuous_scale=["#BFDBFE", "#60A5FA", "#2563EB"],
-        zoom=MAP_ZOOM_DEFAULT,
-        center=MAP_CENTER_BRAZIL,
-        title="Geographic Distribution of Customers in Brazil",
-        height=520,
-    )
-
-    fig.update_traces(marker=dict(size=8, opacity=0.70))
-    fig.update_layout(
-        map_style=MAP_STYLE_LIGHT,
-        coloraxis_colorbar=dict(
-            title=dict(text="Sales", font=dict(color=COLOR_TEXT)),
-            tickfont=dict(color=COLOR_TEXT),
-        ),
-        margin=dict(l=10, r=10, t=60, b=10),
-        paper_bgcolor=COLOR_CARD,
-        font=dict(color=COLOR_TEXT),
-    )
-    return fig
-
-
-def build_state_map_figure(state_df: pd.DataFrame) -> go.Figure:
-    fig = px.scatter_map(
-        state_df,
-        lat="lat",
-        lon="lon",
-        size="total_revenue",
-        color="total_revenue",
-        hover_name="customer_state",
-        hover_data={
-            "total_revenue": ":.2f",
-            "total_orders": True,
-            "lat": False,
-            "lon": False,
-        },
-        color_continuous_scale=["#BFDBFE", "#60A5FA", "#2563EB"],
-        zoom=MAP_ZOOM_DEFAULT,
-        center=MAP_CENTER_BRAZIL,
-        title="Geographic Distribution by State Centroid (Fallback Mode)",
-        height=520,
-    )
-
-    fig.update_traces(marker=dict(opacity=0.75))
-    fig.update_layout(
-        map_style=MAP_STYLE_LIGHT,
-        coloraxis_colorbar=dict(
-            title=dict(text="Revenue", font=dict(color=COLOR_TEXT)),
-            tickfont=dict(color=COLOR_TEXT),
-        ),
-        margin=dict(l=10, r=10, t=60, b=10),
-        paper_bgcolor=COLOR_CARD,
-        font=dict(color=COLOR_TEXT),
-    )
-    return fig
-
-
-# =========================================================
-# VALIDATION
-# =========================================================
-def validate_dataset(df: pd.DataFrame, path: Path, separator: str) -> None:
-    missing_columns = validate_required_columns(df)
-    if not missing_columns:
-        return
-
-    st.error("Struktur file `main_data.csv` tidak sesuai dengan kebutuhan dashboard.")
-    st.write("File yang dibaca:", str(path))
-    st.write("Separator yang terdeteksi:", repr(separator))
-    st.write("Kolom yang hilang:", missing_columns)
-    st.write("Kolom yang berhasil dibaca:", df.columns.tolist())
-
-    with st.expander("Lihat preview data yang terbaca"):
-        st.dataframe(df.head(10), width="stretch")
-
-    st.stop()
-
-
-# =========================================================
-# RENDER HELPERS
-# =========================================================
 def render_header() -> None:
     st.title("Dashboard Analisis E-Commerce Public Dataset")
     st.caption(
-        "Analytical dashboard based on E-Commerce Public Dataset. "
-        "Dashboard ini merangkum performa bisnis, kepuasan pelanggan, "
-        "analisis RFM, dan distribusi geografis pelanggan."
+        "Dashboard interaktif ini menggunakan data hasil cleaning untuk mengeksplorasi "
+        "performa bisnis, pelanggan, dan persebaran geografis."
     )
-    st.caption("Klik ikon panah di kiri atas untuk membuka atau menutup panel filter.")
 
     st.markdown(
         """
         <div class="hero-box">
             <b>Tujuan dashboard</b><br>
-            Dashboard ini digunakan untuk menjawab dua pertanyaan bisnis utama:
-            kategori produk mana yang paling berkontribusi terhadap penjualan,
-            dan bagaimana performa pengiriman berhubungan dengan kepuasan pelanggan.
+            Dashboard ini membantu mengeksplorasi tren revenue, performa kategori produk,
+            hubungan keterlambatan pengiriman dengan review pelanggan, segmentasi pelanggan,
+            dan persebaran geografis pelanggan berdasarkan filter yang dipilih.
         </div>
         """,
         unsafe_allow_html=True,
     )
+
+    with st.expander("Cara menggunakan dashboard", expanded=False):
+        st.markdown(
+            """
+            **Langkah penggunaan:**
+            1. Pilih preset periode atau tanggal kustom di sidebar.
+            2. Filter data berdasarkan state pelanggan dan kategori produk.
+            3. Ubah nilai **Top N** untuk mengatur banyaknya kategori/state yang ditampilkan.
+            4. Buka tab **Business Performance**, **Customer Intelligence**, atau **Geographic Distribution**.
+            5. Gunakan tombol **Download** untuk menyimpan data hasil filter atau ringkasan KPI.
+            """
+        )
+
+
+def render_download_section(filtered_df: pd.DataFrame, summary_df: pd.DataFrame) -> None:
+    st.subheader("Download Data")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.download_button(
+            label="Download data hasil filter (CSV)",
+            data=dataframe_to_csv_bytes(filtered_df),
+            file_name="filtered_main_data.csv",
+            mime="text/csv",
+        )
+
+    with col2:
+        st.download_button(
+            label="Download ringkasan KPI (CSV)",
+            data=dataframe_to_csv_bytes(summary_df),
+            file_name="dashboard_summary.csv",
+            mime="text/csv",
+        )
 
 
 def render_kpis(kpis: Dict[str, float]) -> None:
@@ -1017,59 +900,97 @@ def render_kpis(kpis: Dict[str, float]) -> None:
     col2.metric("Total Orders", format_number(kpis["total_orders"]))
     col3.metric("Total Customers", format_number(kpis["total_customers"]))
     col4.metric("Average Order Value", format_currency(kpis["avg_order_value"]))
-    col5.metric("Average Review Score", f"{kpis['avg_review_score']:.2f}")
-    col6.metric("Late Delivery Rate", f"{kpis['late_delivery_rate']:.2f}%")
+    col5.metric("Average Review Score", f"{kpis['avg_review']:.2f}")
+    col6.metric("Late Delivery Rate", f"{kpis['late_rate']:.2f}%")
 
 
-def render_business_tab(item_df: pd.DataFrame, order_df: pd.DataFrame, kpis: Dict[str, float]) -> None:
+def render_business_tab(item_df: pd.DataFrame, order_df: pd.DataFrame, kpis: Dict[str, float], top_n: int) -> None:
     render_kpis(kpis)
     st.markdown("---")
+
+    monthly_df = monthly_summary(order_df)
+    category_df = top_categories(item_df, top_n=top_n)
 
     left_column, right_column = st.columns([2, 1])
 
     with left_column:
-        monthly_sales_df = get_monthly_sales(item_df)
+        fig = go.Figure()
 
-        fig_monthly_sales = px.line(
-            monthly_sales_df,
-            x="purchase_month",
-            y="sales",
-            markers=True,
-            title="Monthly Revenue Trend",
+        fig.add_trace(
+            go.Scatter(
+                x=monthly_df["purchase_month"],
+                y=monthly_df["total_revenue"],
+                mode="lines+markers",
+                line=dict(color=COLOR_PRIMARY, width=3),
+                marker=dict(color=COLOR_HIGHLIGHT, size=7),
+                name="Revenue",
+            )
         )
-        fig_monthly_sales.update_traces(
-            line=dict(color=COLOR_PRIMARY, width=3),
-            marker=dict(size=7, color=COLOR_WARNING),
+
+        fig.add_trace(
+            go.Scatter(
+                x=monthly_df["purchase_month"],
+                y=monthly_df["total_orders"],
+                mode="lines+markers",
+                line=dict(color=COLOR_SUCCESS, width=2, dash="dot"),
+                marker=dict(color=COLOR_SUCCESS, size=6),
+                name="Orders",
+                yaxis="y2",
+            )
         )
-        fig_monthly_sales.update_layout(
-            xaxis_title="Purchase Month",
-            yaxis_title="Total Revenue (R$)",
+
+        fig.update_layout(
+            title="Tren Revenue dan Jumlah Order per Bulan",
+            xaxis_title="Bulan",
+            yaxis_title="Total Revenue",
+            yaxis2=dict(
+                title="Jumlah Order",
+                overlaying="y",
+                side="right",
+                showgrid=False,
+                tickfont=dict(color=COLOR_SUBTEXT),
+            ),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+                font=dict(color=COLOR_TEXT),
+            ),
             height=420,
         )
-        st.plotly_chart(
-            apply_figure_style(fig_monthly_sales),
-            width="stretch",
-            config=get_plotly_config(),
-        )
+
+        st.plotly_chart(base_layout(fig), width="stretch", config=PLOT_CONFIG)
 
     with right_column:
-        top_category_df = get_top_categories_by_revenue(item_df, top_n=10)
-        top_category_name = safe_first_row_value(top_category_df, "product_category_name_english", "-")
-        top_category_value = safe_first_row_value(top_category_df, "sales", 0)
+        peak_month = (
+            monthly_df.loc[monthly_df["total_revenue"].idxmax(), "purchase_month"]
+            if not monthly_df.empty else "-"
+        )
+        peak_revenue = (
+            monthly_df.loc[monthly_df["total_revenue"].idxmax(), "total_revenue"]
+            if not monthly_df.empty else 0
+        )
+        top_category_name = safe_value(category_df, "product_category_name_english", "-")
+        top_category_value = safe_value(category_df, "total_revenue", 0)
 
         st.markdown(
             f"""
             <div class="insight-box">
-                <h4 style="margin-top:0;">Key Insight</h4>
+                <h4 style="margin-top:0;">Insight Utama</h4>
                 <p>
-                    Pendapatan terkonsentrasi pada sejumlah kecil kategori utama.
-                    Pada filter aktif, kategori dengan penjualan tertinggi adalah
-                    <b>{top_category_name}</b> dengan total sekitar
+                    Pada filter aktif, puncak revenue terjadi pada <b>{peak_month}</b>
+                    dengan total sekitar <b>{format_currency(peak_revenue)}</b>.
+                </p>
+                <p>
+                    Kategori produk dengan kontribusi revenue terbesar adalah
+                    <b>{top_category_name}</b> dengan nilai sekitar
                     <b>{format_currency(top_category_value)}</b>.
                 </p>
                 <p>
-                    Kategori ini layak diprioritaskan untuk strategi promosi,
-                    manajemen stok, dan pengembangan produk unggulan.
+                    Temuan ini dapat digunakan untuk menentukan prioritas promosi,
+                    alokasi stok, dan evaluasi momentum penjualan bulanan.
                 </p>
             </div>
             """,
@@ -1081,124 +1002,89 @@ def render_business_tab(item_df: pd.DataFrame, order_df: pd.DataFrame, kpis: Dic
     left_column, right_column = st.columns(2)
 
     with left_column:
-        revenue_by_category_df = get_top_categories_by_revenue(item_df, top_n=10)
+        revenue_plot = category_df.sort_values("total_revenue", ascending=True).reset_index(drop=True)
+        colors = bar_colors(len(revenue_plot), len(revenue_plot) - 1)
 
-        fig_revenue_category = px.bar(
-            revenue_by_category_df,
-            x="sales",
-            y="product_category_name_english",
-            orientation="h",
-            title="Top Product Categories by Revenue",
-            labels={
-                "sales": "Total Revenue",
-                "product_category_name_english": "Product Category",
-            },
-            color="sales",
-            color_continuous_scale=["#183B5B", "#2563EB", "#38BDF8"],
+        fig = go.Figure(
+            go.Bar(
+                x=revenue_plot["total_revenue"],
+                y=revenue_plot["product_category_name_english"],
+                orientation="h",
+                marker_color=colors,
+            )
         )
-        fig_revenue_category.update_layout(
+        fig.update_layout(
+            title=f"Top {top_n} Kategori Produk Berdasarkan Revenue",
+            xaxis_title="Total Revenue",
+            yaxis_title="Kategori Produk",
             height=430,
-            yaxis={"categoryorder": "total ascending"},
-            coloraxis_showscale=False,
         )
-        st.plotly_chart(
-            apply_figure_style(fig_revenue_category),
-            width="stretch",
-            config=get_plotly_config(),
-        )
+        st.plotly_chart(base_layout(fig), width="stretch", config=PLOT_CONFIG)
 
     with right_column:
-        orders_by_category_df = get_top_categories_by_orders(item_df, top_n=10)
+        order_plot = category_df.sort_values("total_orders", ascending=True).reset_index(drop=True)
+        highlight_idx = int(order_plot["total_orders"].idxmax()) if not order_plot.empty else -1
+        colors = bar_colors(len(order_plot), highlight_idx)
 
-        fig_orders_category = px.bar(
-            orders_by_category_df,
-            x="total_orders",
-            y="product_category_name_english",
-            orientation="h",
-            title="Top Product Categories by Orders",
-            labels={
-                "total_orders": "Total Orders",
-                "product_category_name_english": "Product Category",
-            },
-            color="total_orders",
-            color_continuous_scale=["#1E293B", "#818CF8", "#38BDF8"],
+        fig = go.Figure(
+            go.Bar(
+                x=order_plot["total_orders"],
+                y=order_plot["product_category_name_english"],
+                orientation="h",
+                marker_color=colors,
+            )
         )
-        fig_orders_category.update_layout(
+        fig.update_layout(
+            title=f"Top {top_n} Kategori Produk Berdasarkan Jumlah Order",
+            xaxis_title="Jumlah Order",
+            yaxis_title="Kategori Produk",
             height=430,
-            yaxis={"categoryorder": "total ascending"},
-            coloraxis_showscale=False,
         )
-        st.plotly_chart(
-            apply_figure_style(fig_orders_category),
-            width="stretch",
-            config=get_plotly_config(),
-        )
-
-    st.markdown("---")
-
-    st.markdown(
-        f"""
-        <div class="insight-box">
-            <h4 style="margin-top:0;">Business Interpretation</h4>
-            <p>
-                Nilai rata-rata transaksi pada filter aktif adalah
-                <b>{format_currency(kpis["avg_order_value"])}</b>.
-            </p>
-            <p>
-                Dengan melihat kategori unggulan dari sisi <b>pendapatan</b> dan
-                <b>jumlah pesanan</b> secara bersamaan, dashboard ini lebih sinkron
-                dengan pertanyaan bisnis pada notebook.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        st.plotly_chart(base_layout(fig), width="stretch", config=PLOT_CONFIG)
 
 
 def render_customer_tab(order_df: pd.DataFrame) -> None:
-    st.subheader("Customer Intelligence Overview")
+    review_df = review_by_delay(order_df)
+    rfm_df = rfm_summary(order_df)
+    spending_df = spending_group_summary(order_df)
 
     left_column, right_column = st.columns([2, 1])
-    review_by_delay_df = get_review_by_delay(order_df)
 
     with left_column:
-        fig_review_delay = px.bar(
-            review_by_delay_df,
+        fig = px.bar(
+            review_df,
             x="delay_category",
-            y="review_score",
-            title="Average Review Score by Delivery Delay Category",
-            labels={
-                "delay_category": "Delay Category",
-                "review_score": "Average Review Score",
-            },
+            y="avg_review",
             color="delay_category",
             color_discrete_map=DELAY_COLOR_MAP,
+            title="Rata-rata Review Score Berdasarkan Ketepatan Pengiriman",
         )
-        fig_review_delay.update_layout(height=420, showlegend=False)
-        st.plotly_chart(
-            apply_figure_style(fig_review_delay),
-            width="stretch",
-            config=get_plotly_config(),
+        fig.update_layout(
+            xaxis_title="Kategori Keterlambatan",
+            yaxis_title="Rata-rata Review Score",
+            height=420,
+            showlegend=False,
         )
+        st.plotly_chart(base_layout(fig), width="stretch", config=PLOT_CONFIG)
 
     with right_column:
-        if review_by_delay_df.empty:
+        if review_df.empty:
             best_delay_name = "-"
             best_delay_score = 0.0
             worst_delay_name = "-"
             worst_delay_score = 0.0
         else:
-            best_row = review_by_delay_df.sort_values("review_score", ascending=False).iloc[0]
-            worst_row = review_by_delay_df.sort_values("review_score", ascending=True).iloc[0]
+            best_row = review_df.sort_values("avg_review", ascending=False).iloc[0]
+            worst_row = review_df.sort_values("avg_review", ascending=True).iloc[0]
             best_delay_name = best_row["delay_category"]
-            best_delay_score = best_row["review_score"]
+            best_delay_score = best_row["avg_review"]
             worst_delay_name = worst_row["delay_category"]
-            worst_delay_score = worst_row["review_score"]
+            worst_delay_score = worst_row["avg_review"]
 
         st.markdown(
             f"""
             <div class="insight-box">
-                <h4 style="margin-top:0;">Delivery Insight</h4>
+                <h4 style="margin-top:0;">Insight Pengiriman</h4>
                 <p>
                     Kategori pengiriman dengan review tertinggi adalah
                     <b>{best_delay_name}</b> dengan rata-rata review
@@ -1210,8 +1096,9 @@ def render_customer_tab(order_df: pd.DataFrame) -> None:
                     <b>{worst_delay_score:.2f}</b>.
                 </p>
                 <p>
-                    Ini menguatkan hasil notebook bahwa performa pengiriman
-                    memiliki hubungan kuat dengan kepuasan pelanggan.
+                    Ini menunjukkan bahwa kualitas pengiriman berhubungan langsung
+                    dengan kepuasan pelanggan, sehingga perbaikan SLA logistik
+                    dapat membantu menjaga review tetap tinggi.
                 </p>
             </div>
             """,
@@ -1219,133 +1106,105 @@ def render_customer_tab(order_df: pd.DataFrame) -> None:
         )
 
     st.markdown("---")
-
-    rfm_summary_df = compute_rfm_segment_summary(order_df)
-    monetary_summary_df = compute_monetary_cluster_summary(order_df)
 
     left_column, right_column = st.columns(2)
 
     with left_column:
-        fig_rfm = px.bar(
-            rfm_summary_df,
-            x="total_customers",
-            y="segment",
-            orientation="h",
-            title="Customer Distribution by RFM Segment",
-            labels={
-                "total_customers": "Number of Customers",
-                "segment": "Customer Segment",
-            },
-            color_discrete_sequence=[COLOR_SUCCESS],
+        rfm_plot = rfm_df.sort_values("total_customers", ascending=True).reset_index(drop=True)
+        highlight_idx = int(rfm_plot["total_customers"].idxmax()) if not rfm_plot.empty else -1
+        colors = bar_colors(len(rfm_plot), highlight_idx)
+
+        fig = go.Figure(
+            go.Bar(
+                x=rfm_plot["total_customers"],
+                y=rfm_plot["segment"],
+                orientation="h",
+                marker_color=colors,
+            )
         )
-        fig_rfm.update_layout(height=430)
-        st.plotly_chart(
-            apply_figure_style(fig_rfm),
-            width="stretch",
-            config=get_plotly_config(),
+        fig.update_layout(
+            title="Distribusi Pelanggan Berdasarkan Segmen RFM",
+            xaxis_title="Jumlah Pelanggan",
+            yaxis_title="Segmen",
+            height=430,
         )
+        st.plotly_chart(base_layout(fig), width="stretch", config=PLOT_CONFIG)
 
     with right_column:
-        fig_cluster = px.bar(
-            monetary_summary_df,
-            x="total_customers",
-            y="monetary_cluster",
-            orientation="h",
-            title="Customer Clustering Based on Monetary Value",
-            labels={
-                "total_customers": "Number of Customers",
-                "monetary_cluster": "Customer Cluster",
-            },
-            color_discrete_sequence=[COLOR_WARNING],
+        spending_plot = spending_df.sort_values("total_revenue", ascending=True).reset_index(drop=True)
+        highlight_idx = int(spending_plot["total_revenue"].idxmax()) if not spending_plot.empty else -1
+        colors = bar_colors(len(spending_plot), highlight_idx)
+
+        fig = go.Figure(
+            go.Bar(
+                x=spending_plot["total_revenue"],
+                y=spending_plot["spending_group"].astype(str),
+                orientation="h",
+                marker_color=colors,
+            )
         )
-        fig_cluster.update_layout(height=430)
-        st.plotly_chart(
-            apply_figure_style(fig_cluster),
-            width="stretch",
-            config=get_plotly_config(),
+        fig.update_layout(
+            title="Kontribusi Revenue Berdasarkan Kelompok Nilai Belanja",
+            xaxis_title="Total Revenue",
+            yaxis_title="Kelompok Pelanggan",
+            height=430,
         )
-
-    st.markdown("---")
-
-    best_count = (
-        rfm_summary_df.loc[rfm_summary_df["segment"] == "Best Customers", "total_customers"].sum()
-        if "Best Customers" in rfm_summary_df["segment"].astype(str).values
-        else 0
-    )
-    high_value_count = (
-        monetary_summary_df.loc[
-            monetary_summary_df["monetary_cluster"] == "Very High", "total_customers"
-        ].sum()
-        if "Very High" in monetary_summary_df["monetary_cluster"].astype(str).values
-        else 0
-    )
-
-    st.markdown(
-        f"""
-        <div class="insight-box">
-            <h4 style="margin-top:0;">Customer Insight</h4>
-            <p>
-                Jumlah pelanggan pada segmen <b>Best Customers</b> adalah
-                <b>{format_number(best_count)}</b>.
-            </p>
-            <p>
-                Dari sisi monetary clustering, pelanggan pada kelompok
-                <b>Very High</b> berjumlah <b>{format_number(high_value_count)}</b>.
-                Kelompok ini bernilai strategis tinggi untuk retensi dan personalisasi.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        st.plotly_chart(base_layout(fig), width="stretch", config=PLOT_CONFIG)
 
 
-def render_geographic_tab(item_df: pd.DataFrame) -> None:
-    st.subheader("Geographic Distribution of Customers")
+def render_geographic_tab(order_df: pd.DataFrame, top_n: int, map_mode: str) -> None:
+    top_state_df = state_summary(order_df, top_n=top_n)
+
+    if top_state_df.empty:
+        st.warning("Data geografis tidak tersedia untuk filter yang dipilih.")
+        return
 
     left_column, right_column = st.columns([2, 1])
-    top_states_df = get_top_states_by_revenue(item_df, top_n=10)
 
     with left_column:
-        fig_geo_bar = px.bar(
-            top_states_df,
-            x="sales",
-            y="customer_state",
-            orientation="h",
-            title="Top Regions by Revenue",
-            labels={
-                "sales": "Total Revenue",
-                "customer_state": "State",
-            },
-            color="sales",
-            color_continuous_scale=["#183B5B", "#2563EB", "#38BDF8"],
+        plot_df = top_state_df.sort_values("total_revenue", ascending=True).reset_index(drop=True)
+        colors = bar_colors(len(plot_df), len(plot_df) - 1)
+
+        fig = go.Figure(
+            go.Bar(
+                x=plot_df["total_revenue"],
+                y=plot_df["customer_state"],
+                orientation="h",
+                marker_color=colors,
+            )
         )
-        fig_geo_bar.update_layout(
+        fig.update_layout(
+            title=f"Top {top_n} State Berdasarkan Revenue",
+            xaxis_title="Total Revenue",
+            yaxis_title="State",
             height=420,
-            yaxis={"categoryorder": "total ascending"},
-            coloraxis_showscale=False,
         )
-        st.plotly_chart(
-            apply_figure_style(fig_geo_bar),
-            width="stretch",
-            config=get_plotly_config(),
-        )
+        st.plotly_chart(base_layout(fig), width="stretch", config=PLOT_CONFIG)
 
     with right_column:
-        top_state_name = safe_first_row_value(top_states_df, "customer_state", "-")
-        top_state_value = safe_first_row_value(top_states_df, "sales", 0)
+        top_state = safe_value(top_state_df, "customer_state", "-")
+        top_revenue = safe_value(top_state_df, "total_revenue", 0)
+        high_late_state = (
+            top_state_df.sort_values("late_rate", ascending=False).iloc[0]["customer_state"]
+            if not top_state_df.empty else "-"
+        )
 
         st.markdown(
             f"""
             <div class="insight-box">
-                <h4 style="margin-top:0;">Geographic Insight</h4>
+                <h4 style="margin-top:0;">Insight Geografis</h4>
                 <p>
-                    State dengan kontribusi penjualan terbesar pada filter aktif adalah
-                    <b>{top_state_name}</b> dengan total sekitar
-                    <b>{format_currency(top_state_value)}</b>.
+                    State dengan kontribusi revenue terbesar pada filter aktif adalah
+                    <b>{top_state}</b> dengan total sekitar
+                    <b>{format_currency(top_revenue)}</b>.
                 </p>
                 <p>
-                    Informasi ini relevan untuk strategi pemasaran regional,
-                    penguatan distribusi, dan optimasi logistik.
+                    State yang perlu perhatian lebih dari sisi keterlambatan pengiriman
+                    pada kelompok teratas adalah <b>{high_late_state}</b>.
+                </p>
+                <p>
+                    Ini menunjukkan bahwa wilayah prioritas promosi dan wilayah prioritas
+                    perbaikan operasional belum tentu selalu sama.
                 </p>
             </div>
             """,
@@ -1354,49 +1213,96 @@ def render_geographic_tab(item_df: pd.DataFrame) -> None:
 
     st.markdown("---")
 
-    granular_map_df = get_granular_map_data(item_df)
+    map_df, map_kind = get_map_data(order_df, map_mode)
 
-    if not granular_map_df.empty:
-        fig_customer_map = build_customer_map_figure(granular_map_df)
-        st.plotly_chart(
-            fig_customer_map,
-            width="stretch",
-            config=get_plotly_config(),
+    if map_df.empty:
+        st.warning("Data peta tidak tersedia untuk filter yang dipilih.")
+        return
+
+    if map_kind == "granular":
+        fig = px.scatter_map(
+            map_df,
+            lat="geolocation_lat",
+            lon="geolocation_lng",
+            color="sales",
+            hover_name="customer_state",
+            hover_data={"sales": ":.2f"},
+            zoom=3.2,
+            center={"lat": -14.2350, "lon": -51.9253},
+            color_continuous_scale=[COLOR_PRIMARY, COLOR_HIGHLIGHT],
+            height=520,
+            title="Peta Persebaran Titik Transaksi Pelanggan",
+            map_style="carto-positron",
         )
+        fig.update_layout(
+            margin=dict(l=10, r=10, t=50, b=10),
+            paper_bgcolor=COLOR_CARD,
+            font=dict(color=COLOR_TEXT),
+        )
+        st.plotly_chart(fig, width="stretch", config=PLOT_CONFIG)
+        st.caption("Peta menggunakan koordinat pelanggan hasil cleaning.")
+    else:
+        fig = px.scatter_map(
+            map_df,
+            lat="lat",
+            lon="lon",
+            size="total_revenue",
+            color="total_revenue",
+            hover_name="customer_state",
+            hover_data={"total_revenue": ":.2f", "total_orders": True},
+            zoom=3.2,
+            center={"lat": -14.2350, "lon": -51.9253},
+            color_continuous_scale=[COLOR_PRIMARY, COLOR_HIGHLIGHT],
+            height=520,
+            title="Peta Persebaran Wilayah Pelanggan",
+            map_style="carto-positron",
+        )
+        fig.update_layout(
+            margin=dict(l=10, r=10, t=50, b=10),
+            paper_bgcolor=COLOR_CARD,
+            font=dict(color=COLOR_TEXT),
+        )
+        st.plotly_chart(fig, width="stretch", config=PLOT_CONFIG)
         st.caption(
-            "Peta dibuat lebih terang menggunakan style `carto-positron`, "
-            "serta dibatasi maksimal 3.000 titik agar dashboard tetap ringan."
+            "Dashboard memakai centroid per state karena mode peta dipilih fallback atau koordinat granular tidak tersedia."
         )
-        return
-
-    state_map_df = get_state_centroid_map_data(item_df)
-
-    if state_map_df.empty:
-        st.warning("Data koordinat tidak tersedia dan fallback peta per state juga tidak dapat dibentuk.")
-        return
-
-    fig_state_map = build_state_map_figure(state_map_df)
-    st.plotly_chart(
-        fig_state_map,
-        width="stretch",
-        config=get_plotly_config(),
-    )
-    st.caption(
-        "Koordinat granular pelanggan tidak terbaca dengan baik, sehingga dashboard memakai fallback centroid per state."
-    )
 
 
-def render_filtered_data(df: pd.DataFrame) -> None:
+def render_filtered_preview(df: pd.DataFrame) -> None:
     with st.expander("Lihat data hasil filter"):
-        st.dataframe(df.head(100), width="stretch")
+        st.dataframe(df.head(100), width="stretch", hide_index=True)
 
 
-# =========================================================
-# APP ORCHESTRATION
-# =========================================================
-def render_dashboard_tabs(filtered_df: pd.DataFrame) -> None:
-    order_df = build_order_level_dataframe(filtered_df)
+def main() -> None:
+    apply_style()
+    render_header()
+
+    data_path = resolve_data_path()
+
+    try:
+        df, separator = load_data(data_path)
+    except Exception as exc:
+        st.error(f"Gagal membaca data: {exc}")
+        st.stop()
+
+    if df.empty:
+        st.error("File main_data.csv berhasil dibaca, tetapi isinya kosong.")
+        st.stop()
+
+    validate_data(df)
+
+    filters = render_sidebar(df, data_path)
+    filtered_df = apply_filters(df, filters)
+
+    if filtered_df.empty:
+        st.warning("Tidak ada data yang sesuai dengan filter yang dipilih.")
+        st.stop()
+
+    order_df = build_order_df(filtered_df)
     kpis = calculate_kpis(filtered_df, order_df)
+    summary_export_df = build_export_summary(kpis, filters, filtered_df)
+
+    render_download_section(filtered_df, summary_export_df)
 
     st.markdown("---")
 
@@ -1409,45 +1315,24 @@ def render_dashboard_tabs(filtered_df: pd.DataFrame) -> None:
     )
 
     with business_tab:
-        render_business_tab(filtered_df, order_df, kpis)
+        render_business_tab(filtered_df, order_df, kpis, top_n=filters["top_n"])
 
     with customer_tab:
         render_customer_tab(order_df)
 
     with geographic_tab:
-        render_geographic_tab(filtered_df)
-
-
-def main() -> None:
-    apply_custom_style()
-    render_header()
-
-    data_path = resolve_data_path()
-
-    try:
-        df, separator = load_data(data_path)
-    except Exception as exc:
-        st.error(f"Gagal membaca data: {exc}")
-        st.stop()
-
-    if df.empty:
-        st.error("File `main_data.csv` berhasil dibaca, tetapi isinya kosong.")
-        st.stop()
-
-    validate_dataset(df, data_path, separator)
-
-    filters = render_sidebar_filters(df, data_path)
-    filtered_df = apply_filters(df, filters)
-
-    if filtered_df.empty:
-        st.warning("Tidak ada data yang sesuai dengan filter yang dipilih.")
-        st.stop()
-
-    render_dashboard_tabs(filtered_df)
+        render_geographic_tab(
+            order_df,
+            top_n=filters["top_n"],
+            map_mode=filters["map_mode"],
+        )
 
     st.markdown("---")
-    render_filtered_data(filtered_df)
-    st.caption("E-Commerce Public Dataset | Analytical Dashboard")
+    render_filtered_preview(filtered_df)
+    st.caption(
+        f"E-Commerce Public Dataset | Separator terdeteksi: {repr(separator)} | "
+        "Dashboard interaktif berbasis data hasil cleaning"
+    )
 
 
 if __name__ == "__main__":

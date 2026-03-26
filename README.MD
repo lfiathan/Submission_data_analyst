@@ -179,16 +179,37 @@ submission/
 
 ## Cara Menjalankan Dashboard
 
-### 1. Install Dependencies
-Pastikan Python telah terpasang, kemudian install seluruh dependency:
+Untuk menjalankan proyek ini di mesin lokal Anda, sangat disarankan menggunakan *virtual environment* agar dependensi proyek tetap terisolasi dengan rapi.
 
+### 1. Setup Virtual Environment
+Buka terminal atau command prompt, pastikan Anda berada di direktori root proyek ini, lalu buat dan aktifkan *virtual environment*:
+
+**Untuk pengguna Windows:**
 ```bash
+python -m venv venv
+venv\Scripts\activate
+```
+Untuk pengguna macOS/Linux:
+```
+Bash
+
+python3 -m venv venv
+source venv/bin/activate
+```
+(Catatan: Jika virtual environment berhasil diaktifkan, biasanya akan muncul indikator (venv) di awal baris terminal Anda).
+### 2. Install Dependencies
+
+Setelah virtual environment aktif, pastikan sistem memiliki versi library yang sesuai dengan menginstal seluruh dependensi yang ada di requirements.txt:
+Bash
+```
 pip install -r requirements.txt
 ```
-### 2. Jalankan Aplikasi Streamlit
 
-Jalankan dashboard dengan perintah berikut:
-```bash
+### 3. Jalankan Aplikasi Streamlit
+
+Setelah semua library selesai diinstal, Anda dapat langsung menjalankan dashboard menggunakan perintah berikut:
+Bash
+```
 streamlit run dashboard/dashboard.py
 ```
-Dashboard akan terbuka secara otomatis melalui browser.
+Dashboard interaktif akan terbuka secara otomatis melalui browser web bawaan Anda (biasanya berjalan di http://localhost:8501).
